@@ -17,11 +17,11 @@ use InfluxDB\ResultSet;
  *
  * $series->select('*')->from('*')->getResult();
  *
- * @todo add inner join
- * @todo add merge
+ * @todo    add inner join
+ * @todo    add merge
  *
  * @package InfluxDB\Query
- * @author Stephen "TheCodeAssassin" Hoogendijk <s.hoogendijk@tech.leaseweb.com>
+ * @author  Stephen "TheCodeAssassin" Hoogendijk <s.hoogendijk@tech.leaseweb.com>
  */
 class Builder
 {
@@ -38,7 +38,7 @@ class Builder
     /**
      * @var string[]
      */
-    protected $where = array();
+    protected $where = [];
 
     /**
      * @var string
@@ -80,19 +80,22 @@ class Builder
      */
     protected $orderBy;
 
+    protected ?array $timerange;
+
     /**
      * @param Database $db
      */
-    public function __construct(Database $db)
+    public function __construct( Database $db )
     {
         $this->db = $db;
     }
 
     /**
-     * @param  string $metric The metric to select (required)
+     * @param string $metric The metric to select (required)
+     *
      * @return $this
      */
-    public function from($metric)
+    public function from( $metric )
     {
         $this->metric = $metric;
 
@@ -106,10 +109,11 @@ class Builder
      *
      * $series->select('sum(value)',
      *
-     * @param  string $customSelect
+     * @param string $customSelect
+     *
      * @return $this
      */
-    public function select($customSelect)
+    public function select( $customSelect )
     {
         $this->selection = $customSelect;
 
@@ -119,92 +123,127 @@ class Builder
     /**
      * @param array $conditions
      *
-     * Example: array('time > now()', 'time < now() -1d');
+     * Example:
+     *   - time
+     *   - <
+     *   - now() -1d
+     *   - OR
      *
      * @return $this
      */
-    public function where(array $conditions)
+    public function where( $column, $operator = '=', $value = null, $boolean = 'AND' )
     {
-        foreach ($conditions as $condition) {
-            $this->where[] = $condition;
+        if ( is_array( $column ) ) {
+            foreach ( $column as $item ) {
+                $this->where( ...$item );
+            }
+
+            return $this;
+        }
+
+        $this->where[] = [
+            'column'   => $column,
+            'operator' => $operator,
+            'value'    => $value,
+            'boolean'  => $boolean,
+        ];
+
+        return $this;
+    }
+
+    /**
+     * @return $this
+     */
+    public function when( $condition, callable $callback )
+    {
+        if ( $condition ) {
+            $callback( $this );
         }
 
         return $this;
     }
 
     /**
-     * @param  string $field
+     * @param string $field
+     *
      * @return $this
      */
-    public function count($field = 'type')
+    public function count( $field = 'type' )
     {
-        $this->selection = sprintf('count(%s)', $field);
+        $this->selection = sprintf( 'count(%s)', $field );
 
         return $this;
     }
 
     /**
-     * @param  string $field
+     * @param string $field
+     *
      * @return $this
      */
-    public function median($field = 'type')
+    public function median( $field = 'type' )
     {
-        $this->selection = sprintf('median(%s)', $field);
+        $this->selection = sprintf( 'median(%s)', $field );
 
         return $this;
     }
 
     /**
-     * @param  string $field
+     * @param string $field
+     *
      * @return $this
      */
-    public function mean($field = 'type')
+    public function mean( $field = 'type' )
     {
-        $this->selection = sprintf('mean(%s)', $field);
+        $this->selection = sprintf( 'mean(%s)', $field );
 
         return $this;
     }
 
     /**
-     * @param  string $field
+     * @param string $field
+     *
      * @return $this
      */
-    public function sum($field = 'type')
+    public function sum( $field = 'type' )
     {
-        $this->selection = sprintf('sum(%s)', $field);
+        $this->selection = sprintf( 'sum(%s)', $field );
 
         return $this;
     }
 
     /**
-     * @param  string $field
+     * @param string $field
+     *
      * @return $this
      */
-    public function first($field = 'type')
+    public function first( $field = 'type' )
     {
-        $this->selection = sprintf('first(%s)', $field);
+        $this->selection = sprintf( 'first(%s)', $field );
 
         return $this;
     }
 
     /**
-     * @param  string $field
+     * @param string $field
+     *
      * @return $this
      */
-    public function last($field = 'type')
+    public function last( $field = 'type' )
     {
-        $this->selection = sprintf('last(%s)', $field);
+        $this->selection = sprintf( 'last(%s)', $field );
 
         return $this;
     }
 
-    public function groupBy($field = 'type') {
+    public function groupBy( $field = 'type' )
+    {
         $this->groupBy[] = $field;
 
         return $this;
     }
 
-    public function orderBy($field = 'type', $order = 'ASC') {
+    public function orderBy( $field = 'type', $order = 'ASC' )
+    {
         $this->orderBy[] = "$field $order";
 
         return $this;
@@ -213,16 +252,20 @@ class Builder
     /**
      * Set's the time range to select data from
      *
-     * @param  int $from
-     * @param  int $to
+     * @param int $from
+     * @param int $to
+     *
      * @return $this
      */
-    public function setTimeRange($from, $to)
+    public function setTimeRange( $from, $to )
     {
-        $fromDate = date('Y-m-d H:i:s', (int) $from);
-        $toDate = date('Y-m-d H:i:s', (int) $to);
+        $fromDate = date( 'Y-m-d H:i:s', (int) $from );
+        $toDate   = date( 'Y-m-d H:i:s', (int) $to );
 
-        $this->where(array("time > '$fromDate'", "time < '$toDate'"));
+        $this->timerange = [
+            'from' => $fromDate,
+            'to'   => $toDate
+        ];
 
         return $this;
     }
@@ -232,9 +275,9 @@ class Builder
      *
      * @return $this
      */
-    public function percentile($percentile = 95)
+    public function percentile( $percentile = 95 )
     {
-        $this->selection = sprintf('percentile(value, %d)', (int) $percentile);
+        $this->selection = sprintf( 'percentile(value, %d)', (int) $percentile );
 
         return $this;
     }
@@ -246,9 +289,9 @@ class Builder
      *
      * @return $this
      */
-    public function limit($count)
+    public function limit( $count )
     {
-        $this->limitClause = sprintf(' LIMIT %s', (int) $count);
+        $this->limitClause = sprintf( ' LIMIT %s', (int) $count );
 
         return $this;
     }
@@ -260,9 +303,9 @@ class Builder
      *
      * @return $this
      */
-    public function offset($count)
+    public function offset( $count )
     {
-        $this->offsetClause = sprintf(' OFFSET %s', (int) $count);
+        $this->offsetClause = sprintf( ' OFFSET %s', (int) $count );
 
         return $this;
     }
@@ -274,9 +317,9 @@ class Builder
      *
      * @return $this
      */
-    public function retentionPolicy($rp)
+    public function retentionPolicy( $rp )
     {
-        $this->retentionPolicy =  $rp;
+        $this->retentionPolicy = $rp;
 
         return $this;
     }
@@ -297,7 +340,7 @@ class Builder
      */
     public function getResultSet()
     {
-        return  $this->db->query($this->parseQuery());
+        return $this->db->query( $this->parseQuery() );
     }
 
     /**
@@ -307,41 +350,47 @@ class Builder
     {
         $rp = '';
 
-        if (is_string($this->retentionPolicy) && !empty($this->retentionPolicy)) {
-            $rp = sprintf('"%s".', $this->retentionPolicy);
+        if ( is_string( $this->retentionPolicy ) && ! empty( $this->retentionPolicy ) ) {
+            $rp = sprintf( '"%s".', $this->retentionPolicy );
         }
 
-        $query = sprintf('SELECT %s FROM %s"%s"', $this->selection, $rp, $this->metric);
+        $query = sprintf( 'SELECT %s FROM %s"%s"', $this->selection, $rp, $this->metric );
 
-        if (! $this->metric) {
-            throw new \InvalidArgumentException('No metric provided to from()');
+        if ( ! $this->metric ) {
+            throw new \InvalidArgumentException( 'No metric provided to from()' );
         }
 
-        for ($i = 0, $iMax = count($this->where); $i < $iMax; $i++) {
-            $selection = 'WHERE';
+        if ( $this->timerange ) {
+            $query .= sprintf( ' WHERE (time >= \'%s\' AND time <= \'%s\')', $this->timerange['from'], $this->timerange['to'] );
+        }
 
-            if ($i > 0) {
-                $selection = 'AND';
+        if ( \count( $this->where ) > 0 ) {
+            if ( ! $this->timerange ) {
+                $query .= ' WHERE (';
+            } else {
+                $query .= ' AND (';
             }
 
-            $clause = $this->where[$i];
-            $query .= ' ' . $selection . ' ' . $clause;
+            foreach ( $this->where as $index => $condition ) {
+                $query .= urlencode($condition['column']) . ' ' . $condition['operator'] . ' \'' . urlencode($condition['value']) . '\'' . ( \count( $this->where ) - 1 > $index ? ' ' . $condition['boolean'] : '' );
+            }
 
+            $query .= ')';
         }
 
-        if (!empty($this->groupBy)) {
-            $query .= ' GROUP BY ' . implode(',', $this->groupBy);
+        if ( ! empty( $this->groupBy ) ) {
+            $query .= ' GROUP BY ' . implode( ',', $this->groupBy );
         }
 
-        if (!empty($this->orderBy)) {
-            $query .= ' ORDER BY ' . implode(',', $this->orderBy);
+        if ( ! empty( $this->orderBy ) ) {
+            $query .= ' ORDER BY ' . implode( ',', $this->orderBy );
         }
 
-        if ($this->limitClause) {
+        if ( $this->limitClause ) {
             $query .= $this->limitClause;
         }
 
-        if ($this->offsetClause) {
+        if ( $this->offsetClause ) {
             $query .= $this->offsetClause;
         }
 
