@@ -372,7 +372,7 @@ class Builder
             }
 
             foreach ( $this->where as $index => $condition ) {
-                $query .= urlencode($condition['column']) . ' ' . $condition['operator'] . ' \'' . urlencode($condition['value']) . '\'' . ( \count( $this->where ) - 1 > $index ? ' ' . $condition['boolean'] : '' );
+                $query .= urlencode($condition['column']) . ' ' . $condition['operator'] . ' \'' . urlencode($condition['value']) . '\'' . ( \count( $this->where ) - 1 > $index ? ' ' . $condition['boolean'] . ' ' : '' );
             }
 
             $query .= ')';
