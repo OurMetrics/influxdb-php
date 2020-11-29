@@ -76,11 +76,11 @@ class Builder
     protected $groupBy;
 
     /**
-     * @var array
+     * @var array|null
      */
     protected $orderBy;
 
-    protected ?array $timerange;
+    protected ?array $timerange = null;
 
     /**
      * @param Database $db
